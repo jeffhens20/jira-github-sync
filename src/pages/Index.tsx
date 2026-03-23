@@ -7,26 +7,38 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw, Zap } from "lucide-react";
+import { RefreshCw, Zap, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 export default function Index() {
-  // Fetch stories — refetches on manual trigger via refetch()
   const { data: stories, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["pipeline-stories"],
     queryFn: fetchJiraStories,
-    // Refetch every 5 minutes in the background
-    refetchInterval: 5 * 60 * 1000,
   });
 
-  // Format the last-updated timestamp
+  // Auto-refresh countdown (30s interval)
+  const { enabled: autoRefreshOn, setEnabled: setAutoRefresh, secondsLeft, resetCountdown } =
+    useAutoRefresh({
+      intervalSeconds: 30,
+      onRefresh: () => refetch(),
+    });
+
+  // Manual refresh resets the countdown too
+  const handleManualRefresh = () => {
+    refetch();
+    resetCountdown();
+  };
+
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
+        second: "2-digit",
       })
     : null;
 
@@ -47,16 +59,32 @@ export default function Index() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* Auto-refresh toggle with countdown */}
+            <div className="flex items-center gap-2">
+              <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+              <Switch
+                checked={autoRefreshOn}
+                onCheckedChange={setAutoRefresh}
+                className="data-[state=checked]:bg-primary"
+              />
+              <span className="text-xs text-muted-foreground tabular-nums w-8">
+                {autoRefreshOn ? `${secondsLeft}s` : "off"}
+              </span>
+            </div>
+
+            {/* Separator dot */}
+            <div className="h-4 w-px bg-border" />
+
             {lastUpdated && (
               <span className="text-xs text-muted-foreground tabular-nums">
-                Updated {lastUpdated}
+                {lastUpdated}
               </span>
             )}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => refetch()}
+              onClick={handleManualRefresh}
               className="gap-1.5 border-border bg-secondary text-foreground hover:bg-primary/10 hover:text-primary active:scale-[0.97] transition-all duration-150"
             >
               <RefreshCw className="h-3.5 w-3.5" />
