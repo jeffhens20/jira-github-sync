@@ -7,7 +7,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { RefreshCw, Timer } from "lucide-react";
+import { RefreshCw, Timer, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +17,7 @@ import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { projects } from "@/config/projects";
+import { useAutoCycle } from "@/hooks/useAutoCycle";
 
 /** Format seconds as "Xs" or "M:SS" */
 function formatCountdown(s: number): string {
@@ -29,6 +30,21 @@ function formatCountdown(s: number): string {
 export default function Index() {
   const [intervalSeconds, setIntervalSeconds] = useState(30);
   const [activeProject, setActiveProject] = useState(projects[0].id);
+  const [cycleInterval, setCycleInterval] = useState(10);
+
+  const projectIds = useMemo(() => projects.map((p) => p.id), []);
+
+  const {
+    enabled: autoCycleOn,
+    setEnabled: setAutoCycle,
+    secondsLeft: cycleSecondsLeft,
+    resetCountdown: resetCycleCountdown,
+  } = useAutoCycle({
+    values: projectIds,
+    active: activeProject,
+    onCycle: (next) => setActiveProject(next),
+    intervalSeconds: cycleInterval,
+  });
 
   const selectedProject = projects.find((p) => p.id === activeProject) ?? projects[0];
 
@@ -103,6 +119,39 @@ export default function Index() {
 
           <div className="h-4 w-px bg-border" />
 
+          {/* Auto-cycle projects toggle */}
+          <div className="flex items-center gap-2">
+            <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+            <Switch
+              checked={autoCycleOn}
+              onCheckedChange={setAutoCycle}
+              className="data-[state=checked]:bg-primary"
+            />
+            <Select
+              value={String(cycleInterval)}
+              onValueChange={(v) => setCycleInterval(Number(v))}
+            >
+              <SelectTrigger className="h-7 w-[80px] bg-secondary border-border text-xs tabular-nums px-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-secondary border-border">
+                <SelectItem value="5">5s</SelectItem>
+                <SelectItem value="10">10s</SelectItem>
+                <SelectItem value="30">30s</SelectItem>
+                <SelectItem value="60">1 min</SelectItem>
+              </SelectContent>
+            </Select>
+            <span
+              className={`text-xs text-muted-foreground tabular-nums w-12 transition-opacity ${
+                autoCycleOn && cycleSecondsLeft <= 3 ? "animate-pulse-lime text-primary" : ""
+              }`}
+            >
+              {autoCycleOn ? formatCountdown(cycleSecondsLeft) : "off"}
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
           {lastUpdated && (
             <span className="text-xs text-muted-foreground tabular-nums">
               {lastUpdated}
@@ -163,7 +212,7 @@ export default function Index() {
               {projects.map((proj) => (
                 <button
                   key={proj.id}
-                  onClick={() => setActiveProject(proj.id)}
+                  onClick={() => { setActiveProject(proj.id); resetCycleCountdown(); }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 active:scale-[0.97] ${
                     activeProject === proj.id
                       ? "bg-primary/15 text-primary border border-primary/30"
