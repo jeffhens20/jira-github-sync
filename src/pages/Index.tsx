@@ -7,6 +7,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { RefreshCw, Zap, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
