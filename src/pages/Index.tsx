@@ -17,6 +17,14 @@ import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
+/** Format seconds as "Xs" or "M:SS" for longer intervals */
+function formatCountdown(s: number): string {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 export default function Index() {
   const [intervalSeconds, setIntervalSeconds] = useState(30);
 
