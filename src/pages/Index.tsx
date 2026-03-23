@@ -119,6 +119,39 @@ export default function Index() {
 
           <div className="h-4 w-px bg-border" />
 
+          {/* Auto-cycle projects toggle */}
+          <div className="flex items-center gap-2">
+            <Repeat className="h-3.5 w-3.5 text-muted-foreground" />
+            <Switch
+              checked={autoCycleOn}
+              onCheckedChange={setAutoCycle}
+              className="data-[state=checked]:bg-primary"
+            />
+            <Select
+              value={String(cycleInterval)}
+              onValueChange={(v) => setCycleInterval(Number(v))}
+            >
+              <SelectTrigger className="h-7 w-[80px] bg-secondary border-border text-xs tabular-nums px-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-secondary border-border">
+                <SelectItem value="5">5s</SelectItem>
+                <SelectItem value="10">10s</SelectItem>
+                <SelectItem value="30">30s</SelectItem>
+                <SelectItem value="60">1 min</SelectItem>
+              </SelectContent>
+            </Select>
+            <span
+              className={`text-xs text-muted-foreground tabular-nums w-12 transition-opacity ${
+                autoCycleOn && cycleSecondsLeft <= 3 ? "animate-pulse-lime text-primary" : ""
+              }`}
+            >
+              {autoCycleOn ? formatCountdown(cycleSecondsLeft) : "off"}
+            </span>
+          </div>
+
+          <div className="h-4 w-px bg-border" />
+
           {lastUpdated && (
             <span className="text-xs text-muted-foreground tabular-nums">
               {lastUpdated}
