@@ -1,7 +1,7 @@
 /**
  * PipelineTable
  * 
- * The main data table showing sprint stories and their
+ * Stacked-card layout showing sprint stories and their
  * deployment pipeline progress. Supports filtering, search,
  * and drag-and-drop row reordering.
  */
@@ -14,14 +14,6 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -32,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { PipelineStatusIcons } from "@/components/PipelineStatusIcons";
 import { AssigneeCell } from "@/components/AssigneeCell";
-import { PIPELINE_STAGES, STAGE_LABELS, type PipelineStage, type PipelineStory } from "@/types/pipeline";
+import { PIPELINE_STAGES, STAGE_LABELS, type PipelineStory } from "@/types/pipeline";
 
 interface PipelineTableProps {
   stories: PipelineStory[];
@@ -49,19 +41,16 @@ export function PipelineTable({ stories }: PipelineTableProps) {
     setOrderedIds(stories.map((s) => s.id));
   }, [stories]);
 
-  // Build a lookup map for quick access
   const storyMap = useMemo(
     () => new Map(stories.map((s) => [s.id, s])),
     [stories]
   );
 
-  // Extract unique assignee names for the filter dropdown
   const assigneeNames = useMemo(
     () => [...new Set(stories.map((s) => s.assignee.name))].sort(),
     [stories]
   );
 
-  // Apply filters while preserving manual order
   const filteredStories = useMemo(() => {
     return orderedIds
       .map((id) => storyMap.get(id))
@@ -81,14 +70,12 @@ export function PipelineTable({ stories }: PipelineTableProps) {
       });
   }, [orderedIds, storyMap, search, assigneeFilter, stageFilter]);
 
-  /** Reorder rows on drag end */
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return;
     const from = result.source.index;
     const to = result.destination.index;
     if (from === to) return;
 
-    // Reorder the filtered list, then map back to full orderedIds
     const draggedId = filteredStories[from].id;
     const targetId = filteredStories[to].id;
 
@@ -106,7 +93,6 @@ export function PipelineTable({ stories }: PipelineTableProps) {
     <div className="space-y-4 animate-fade-in">
       {/* ── Filter bar ───────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {/* Search input */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -117,7 +103,6 @@ export function PipelineTable({ stories }: PipelineTableProps) {
           />
         </div>
 
-        {/* Assignee filter */}
         <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
           <SelectTrigger className="w-full sm:w-[180px] bg-secondary border-border h-9 text-sm">
             <Filter className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -131,7 +116,6 @@ export function PipelineTable({ stories }: PipelineTableProps) {
           </SelectContent>
         </Select>
 
-        {/* Stage filter */}
         <Select value={stageFilter} onValueChange={setStageFilter}>
           <SelectTrigger className="w-full sm:w-[180px] bg-secondary border-border h-9 text-sm">
             <Filter className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -146,108 +130,91 @@ export function PipelineTable({ stories }: PipelineTableProps) {
         </Select>
       </div>
 
-      {/* ── Data table ───────────────────────────── */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="w-[40px]" />
-                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[120px]">
-                  Key
-                </TableHead>
-                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                  Story
-                </TableHead>
-                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[180px]">
-                  Assignee
-                </TableHead>
-                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[260px]">
-                  Pipeline
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <Droppable droppableId="pipeline-table">
-              {(provided) => (
-                <TableBody ref={provided.innerRef} {...provided.droppableProps}>
-                  {filteredStories.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                        No stories match your filters.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredStories.map((story, index) => (
-                      <Draggable key={story.id} draggableId={story.id} index={index}>
-                        {(provided, snapshot) => (
-                          <TableRow
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`
-                              border-border transition-all duration-200 group
-                              animate-row-enter
-                              hover:bg-primary/[0.04] hover:shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15),0_0_12px_-4px_hsl(var(--primary)/0.2)]
-                              ${snapshot.isDragging
-                                ? "bg-secondary shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.3),inset_0_0_0_1px_hsl(var(--primary)/0.3)] scale-[1.01] z-50"
-                                : ""}
-                            `}
-                            style={{
-                              ...provided.draggableProps.style,
-                              animationDelay: `${index * 40}ms`,
-                            }}
-                          >
-                            {/* Drag handle */}
-                            <TableCell className="w-[40px] px-2">
-                              <div
-                                {...provided.dragHandleProps}
-                                className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-                              >
-                                <GripVertical className="h-4 w-4" />
-                              </div>
-                            </TableCell>
+      {/* ── Stacked card rows ───────────────────── */}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="pipeline-table">
+          {(provided) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className="flex flex-col gap-2"
+            >
+              {filteredStories.length === 0 ? (
+                <div className="rounded-xl bg-secondary/50 border border-border py-16 text-center text-muted-foreground">
+                  No stories match your filters.
+                </div>
+              ) : (
+                filteredStories.map((story, index) => (
+                  <Draggable key={story.id} draggableId={story.id} index={index}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={`
+                          group flex items-center gap-3 sm:gap-4
+                          rounded-xl border border-border bg-card
+                          px-3 py-3 sm:px-5 sm:py-3.5
+                          transition-all duration-200
+                          animate-row-enter
+                          hover:bg-primary/[0.04]
+                          hover:shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15),0_0_16px_-4px_hsl(var(--primary)/0.2)]
+                          ${snapshot.isDragging
+                            ? "bg-secondary shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.3),inset_0_0_0_1px_hsl(var(--primary)/0.3)] scale-[1.01] z-50"
+                            : ""}
+                        `}
+                        style={{
+                          ...provided.draggableProps.style,
+                          animationDelay: `${index * 40}ms`,
+                        }}
+                      >
+                        {/* Drag handle */}
+                        <div
+                          {...provided.dragHandleProps}
+                          className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </div>
 
-                            {/* Story key */}
-                            <TableCell className="font-mono text-xs text-muted-foreground group-hover:text-primary transition-colors duration-150">
-                              {story.key}
-                            </TableCell>
+                        {/* Story key */}
+                        <span className="flex-shrink-0 w-[90px] font-mono text-xs text-muted-foreground group-hover:text-primary transition-colors duration-150">
+                          {story.key}
+                        </span>
 
-                            {/* Story title */}
-                            <TableCell className="font-medium text-sm text-foreground/90">
-                              {story.prUrl ? (
-                                <a
-                                  href={story.prUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="hover:text-primary transition-colors duration-150 hover:underline underline-offset-2"
-                                >
-                                  {story.title}
-                                </a>
-                              ) : (
-                                story.title
-                              )}
-                            </TableCell>
+                        {/* Story title */}
+                        <span className="flex-1 min-w-0 font-medium text-sm text-foreground/90 truncate">
+                          {story.prUrl ? (
+                            <a
+                              href={story.prUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-primary transition-colors duration-150 hover:underline underline-offset-2"
+                            >
+                              {story.title}
+                            </a>
+                          ) : (
+                            story.title
+                          )}
+                        </span>
 
-                            {/* Assignee */}
-                            <TableCell>
-                              <AssigneeCell assignee={story.assignee} />
-                            </TableCell>
+                        {/* Assignee */}
+                        <div className="flex-shrink-0 w-[140px] hidden sm:block">
+                          <AssigneeCell assignee={story.assignee} />
+                        </div>
 
-                            {/* Pipeline status icons */}
-                            <TableCell>
-                              <PipelineStatusIcons currentStage={story.currentStage} />
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </Draggable>
-                    ))
-                  )}
-                  {provided.placeholder}
-                </TableBody>
+                        {/* Pipeline status icons */}
+                        <div className="flex-shrink-0">
+                          <PipelineStatusIcons currentStage={story.currentStage} />
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))
               )}
-            </Droppable>
-          </Table>
-        </DragDropContext>
-      </div>
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
 
       {/* Row count */}
       <p className="text-xs text-muted-foreground tabular-nums">
