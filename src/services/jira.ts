@@ -6,7 +6,7 @@
  * Returns mock data when USE_MOCK_DATA is true.
  */
 
-import { USE_MOCK_DATA } from "@/config/integrations";
+import { USE_MOCK_DATA } from "@/config/projects";
 import { mockStoriesByProject } from "@/services/mockData";
 import type { ProjectConfig } from "@/config/projects";
 import type { PipelineStory } from "@/types/pipeline";

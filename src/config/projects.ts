@@ -6,6 +6,9 @@
  * Add or remove entries to control which project tabs appear.
  */
 
+// Global toggle: set to false when ready for live data
+export const USE_MOCK_DATA = true;
+
 export interface ProjectConfig {
   /** Unique slug used as tab value and query key */
   id: string;
