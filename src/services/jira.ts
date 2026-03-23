@@ -1,49 +1,35 @@
 /**
  * Jira API Service
- * 
+ *
  * Fetches stories/issues from Jira's REST API.
- * Currently returns mock data when USE_MOCK_DATA is true.
- * 
- * To enable live data:
- * 1. Set your credentials in src/config/integrations.ts
- * 2. Set USE_MOCK_DATA to false
- * 3. Adjust the JQL query below to match your workflow
+ * Accepts a project config to target the correct Jira instance.
+ * Returns mock data when USE_MOCK_DATA is true.
  */
 
-import {
-  USE_MOCK_DATA,
-  JIRA_BASE_URL,
-  JIRA_PROJECT_KEY,
-  JIRA_API_TOKEN,
-  JIRA_USER_EMAIL,
-} from "@/config/integrations";
-import { mockStories } from "@/services/mockData";
+import { USE_MOCK_DATA } from "@/config/integrations";
+import { mockStoriesByProject } from "@/services/mockData";
+import type { ProjectConfig } from "@/config/projects";
 import type { PipelineStory } from "@/types/pipeline";
 
 /**
- * Fetch current sprint stories from Jira.
- * 
- * When USE_MOCK_DATA is true, returns the mock dataset.
- * When false, calls the Jira REST API v3 search endpoint
- * with a JQL query scoped to the active sprint.
+ * Fetch current sprint stories from Jira for a given project.
+ *
+ * @param project — project config with Jira credentials
  */
-export async function fetchJiraStories(): Promise<PipelineStory[]> {
+export async function fetchJiraStories(project: ProjectConfig): Promise<PipelineStory[]> {
   // ── Mock mode ──────────────────────────────
   if (USE_MOCK_DATA) {
-    // Simulate network delay for realistic UX
     await new Promise((r) => setTimeout(r, 600));
-    return mockStories;
+    return mockStoriesByProject[project.id] ?? [];
   }
 
   // ── Live API call ──────────────────────────
-  // Build Basic Auth header: base64(email:token)
-  const authHeader = btoa(`${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}`);
-
-  // JQL: fetch issues in the current sprint, ordered by key
-  const jql = `project = ${JIRA_PROJECT_KEY} AND sprint in openSprints() ORDER BY key ASC`;
+  const { baseUrl, projectKey, apiToken, userEmail } = project.jira;
+  const authHeader = btoa(`${userEmail}:${apiToken}`);
+  const jql = `project = ${projectKey} AND sprint in openSprints() ORDER BY key ASC`;
 
   const response = await fetch(
-    `${JIRA_BASE_URL}/rest/api/3/search?jql=${encodeURIComponent(jql)}&fields=summary,assignee,status`,
+    `${baseUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&fields=summary,assignee,status`,
     {
       headers: {
         Authorization: `Basic ${authHeader}`,
@@ -58,8 +44,6 @@ export async function fetchJiraStories(): Promise<PipelineStory[]> {
 
   const data = await response.json();
 
-  // Map Jira issues to our PipelineStory shape.
-  // NOTE: currentStage will be enriched by GitHub deployment data separately.
   return data.issues.map((issue: any) => ({
     id: issue.id,
     key: issue.key,
@@ -68,6 +52,6 @@ export async function fetchJiraStories(): Promise<PipelineStory[]> {
       name: issue.fields.assignee?.displayName ?? "Unassigned",
       avatarUrl: issue.fields.assignee?.avatarUrls?.["48x48"],
     },
-    currentStage: "draft_pr" as const, // default — overridden by GitHub data
+    currentStage: "draft_pr" as const,
   }));
 }

@@ -1,14 +1,13 @@
 /**
  * Sprint Pipeline Dashboard
- * 
- * Main page that fetches story data and displays it in
- * two tabs: Pipeline (active) and Staging (completed).
- * Includes auto-refresh with configurable intervals.
+ *
+ * Fetches story data per project and displays it in
+ * Pipeline / Staging tabs with a project selector row.
  */
 
 import { useQuery } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
-import { RefreshCw, Zap, Timer } from "lucide-react";
+import { RefreshCw, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -17,8 +16,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
+import { projects } from "@/config/projects";
 
-/** Format seconds as "Xs" or "M:SS" for longer intervals */
+/** Format seconds as "Xs" or "M:SS" */
 function formatCountdown(s: number): string {
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
@@ -28,10 +28,13 @@ function formatCountdown(s: number): string {
 
 export default function Index() {
   const [intervalSeconds, setIntervalSeconds] = useState(30);
+  const [activeProject, setActiveProject] = useState(projects[0].id);
+
+  const selectedProject = projects.find((p) => p.id === activeProject) ?? projects[0];
 
   const { data: stories, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ["pipeline-stories"],
-    queryFn: fetchJiraStories,
+    queryKey: ["pipeline-stories", activeProject],
+    queryFn: () => fetchJiraStories(selectedProject),
   });
 
   const { enabled: autoRefreshOn, setEnabled: setAutoRefresh, secondsLeft, resetCountdown } =
@@ -64,71 +67,56 @@ export default function Index() {
     : null;
 
   return (
-    <div className="min-h-screen bg-background px-0 py-8 sm:px-4">
-      <div className="mx-auto max-w-6xl space-y-8">
-        {/* ── Header ─────────────────────────────── */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <Zap className="h-5 w-5 text-primary" fill="currentColor" />
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Sprint Pipeline
-              </h1>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Story progress across PR &amp; deployment stages
-            </p>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Auto-refresh toggle with countdown */}
-            <div className="flex items-center gap-2">
-              <Timer className="h-3.5 w-3.5 text-muted-foreground" />
-              <Switch
-                checked={autoRefreshOn}
-                onCheckedChange={setAutoRefresh}
-                className="data-[state=checked]:bg-primary"
-              />
-              <Select
-                value={String(intervalSeconds)}
-                onValueChange={(v) => setIntervalSeconds(Number(v))}
-              >
-                <SelectTrigger className="h-7 w-[80px] bg-secondary border-border text-xs tabular-nums px-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-secondary border-border">
-                  <SelectItem value="30">30s</SelectItem>
-                  <SelectItem value="300">5 min</SelectItem>
-                  <SelectItem value="600">10 min</SelectItem>
-                  <SelectItem value="1200">20 min</SelectItem>
-                </SelectContent>
-              </Select>
-              <span
-                className={`text-xs text-muted-foreground tabular-nums w-12 transition-opacity ${
-                  autoRefreshOn && secondsLeft <= 5 ? "animate-pulse-lime text-primary" : ""
-                }`}
-              >
-                {autoRefreshOn ? formatCountdown(secondsLeft) : "off"}
-              </span>
-            </div>
-
-            <div className="h-4 w-px bg-border" />
-
-            {lastUpdated && (
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {lastUpdated}
-              </span>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleManualRefresh}
-              className="gap-1.5 border-border bg-secondary text-foreground hover:bg-primary/10 hover:text-primary active:scale-[0.97] transition-all duration-150"
+    <div className="min-h-screen bg-background px-0 py-6 sm:px-4">
+      <div className="mx-auto max-w-6xl space-y-5">
+        {/* ── Controls row ───────────────────────── */}
+        <header className="flex items-center justify-end gap-4 animate-fade-in px-2 sm:px-0">
+          <div className="flex items-center gap-2">
+            <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+            <Switch
+              checked={autoRefreshOn}
+              onCheckedChange={setAutoRefresh}
+              className="data-[state=checked]:bg-primary"
+            />
+            <Select
+              value={String(intervalSeconds)}
+              onValueChange={(v) => setIntervalSeconds(Number(v))}
             >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </Button>
+              <SelectTrigger className="h-7 w-[80px] bg-secondary border-border text-xs tabular-nums px-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-secondary border-border">
+                <SelectItem value="30">30s</SelectItem>
+                <SelectItem value="300">5 min</SelectItem>
+                <SelectItem value="600">10 min</SelectItem>
+                <SelectItem value="1200">20 min</SelectItem>
+              </SelectContent>
+            </Select>
+            <span
+              className={`text-xs text-muted-foreground tabular-nums w-12 transition-opacity ${
+                autoRefreshOn && secondsLeft <= 5 ? "animate-pulse-lime text-primary" : ""
+              }`}
+            >
+              {autoRefreshOn ? formatCountdown(secondsLeft) : "off"}
+            </span>
           </div>
+
+          <div className="h-4 w-px bg-border" />
+
+          {lastUpdated && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {lastUpdated}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleManualRefresh}
+            className="gap-1.5 border-border bg-secondary text-foreground hover:bg-primary/10 hover:text-primary active:scale-[0.97] transition-all duration-150"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
         </header>
 
         {/* ── Content ────────────────────────────── */}
@@ -153,7 +141,8 @@ export default function Index() {
             </Button>
           </div>
         ) : (
-          <Tabs defaultValue="pipeline" className="space-y-4">
+          <Tabs defaultValue="pipeline" className="space-y-3">
+            {/* Pipeline / Staging tabs */}
             <TabsList className="bg-secondary border border-border">
               <TabsTrigger
                 value="pipeline"
@@ -168,6 +157,23 @@ export default function Index() {
                 Staging ({stagingStories.length})
               </TabsTrigger>
             </TabsList>
+
+            {/* Project sub-tabs */}
+            <div className="flex items-center gap-1 px-1">
+              {projects.map((proj) => (
+                <button
+                  key={proj.id}
+                  onClick={() => setActiveProject(proj.id)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 active:scale-[0.97] ${
+                    activeProject === proj.id
+                      ? "bg-primary/15 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent"
+                  }`}
+                >
+                  {proj.name}
+                </button>
+              ))}
+            </div>
 
             <TabsContent value="pipeline" className="mt-0">
               <PipelineTable stories={pipelineStories} />
