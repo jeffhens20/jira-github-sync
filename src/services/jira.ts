@@ -8,6 +8,8 @@
 
 import { USE_MOCK_DATA } from "@/config/projects";
 import { mockStoriesByProject } from "@/services/mockData";
+import { findPrForIssueKey } from "@/services/githubSearch";
+import { getDeploymentStage } from "@/services/github";
 import type { ProjectConfig } from "@/config/projects";
 import type { PipelineStory } from "@/types/pipeline";
 
