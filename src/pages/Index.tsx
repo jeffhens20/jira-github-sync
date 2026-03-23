@@ -17,6 +17,7 @@ import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { projects } from "@/config/projects";
+import { useAutoCycle } from "@/hooks/useAutoCycle";
 
 /** Format seconds as "Xs" or "M:SS" */
 function formatCountdown(s: number): string {
