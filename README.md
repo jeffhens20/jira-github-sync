@@ -16,6 +16,47 @@ The app launches in **mock mode** by default — no external accounts needed. To
 
 ---
 
+## How It Works
+
+### PR-to-Jira Linking
+
+The dashboard automatically associates Jira stories with GitHub pull requests by searching for the **Jira issue key** (e.g. `PAY-142`) in:
+
+1. The PR **branch name** (e.g. `feature/PAY-142-add-refunds`)
+2. The PR **title** (e.g. `PAY-142: Add refund endpoint`)
+
+If a match is found, the dashboard fetches the PR's status and deployment history to determine the story's pipeline stage.
+
+### Pipeline Stage Detection
+
+Once a PR is linked, its stage is derived from GitHub data:
+
+| Condition | Stage |
+|-----------|-------|
+| PR is a draft | Draft PR |
+| PR is open (not draft) | Review Needed |
+| PR is closed but not merged | Review Needed |
+| PR is merged, no deployments | PR Merged |
+| Merged + deployed to 1st environment | Dev |
+| Merged + deployed to 2nd environment | QA |
+| Merged + deployed to 3rd environment | Staging |
+
+The three deployment environments are configurable per project via `VITE_{ID}_GITHUB_ENVIRONMENTS`.
+
+### Caching
+
+API results are cached in-memory to reduce redundant calls:
+
+| Data | TTL | Notes |
+|------|-----|-------|
+| GitHub PR list (per repo) | 5 min | Shared across all stories in the same repo |
+| Deployment stage (per PR) | 2 min | Individual PR status + deployments |
+| Jira sprint query (per project) | 2 min | Full enriched story list |
+
+On a typical dashboard with 15 stories across 3 projects, this reduces API calls from ~90+ per refresh to a handful every few minutes.
+
+---
+
 ## Integrations Setup
 
 The dashboard pulls data from two services per project:
@@ -135,3 +176,33 @@ The dashboard auto-detects each story's current stage by checking GitHub PR stat
 - **Auto-cycle** — automatically rotate through project tabs
 - **Drag-and-drop** — reorder rows within each view
 - **Search & filter** — filter by assignee, pipeline stage, or free text
+
+---
+
+## Architecture
+
+```
+src/
+├── config/
+│   └── projects.ts          # Project configs, env var loading, USE_MOCK_DATA toggle
+├── services/
+│   ├── cache.ts              # Generic in-memory TTL cache
+│   ├── jira.ts               # Jira API — fetches sprint stories, enriches with PR data
+│   ├── github.ts             # GitHub API — PR status and deployment stage detection
+│   ├── githubSearch.ts       # GitHub PR search — links PRs to Jira keys
+│   └── mockData.ts           # Mock data for development
+├── types/
+│   └── pipeline.ts           # PipelineStage, PipelineStory, Assignee types
+└── components/
+    ├── PipelineTable.tsx      # Main table with drag-and-drop
+    ├── PipelineStatusIcons.tsx # Stage indicator icons
+    └── AssigneeCell.tsx       # Avatar + name cell
+```
+
+## Tech Stack
+
+- **React** + **TypeScript** + **Vite**
+- **Tailwind CSS** + **shadcn/ui**
+- **TanStack Query** — data fetching and cache management
+- **@hello-pangea/dnd** — drag-and-drop
+- **Recharts** — charts (if applicable)
