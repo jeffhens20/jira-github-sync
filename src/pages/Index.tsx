@@ -212,7 +212,7 @@ export default function Index() {
               {projects.map((proj) => (
                 <button
                   key={proj.id}
-                  onClick={() => setActiveProject(proj.id)}
+                  onClick={() => { setActiveProject(proj.id); resetCycleCountdown(); }}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 active:scale-[0.97] ${
                     activeProject === proj.id
                       ? "bg-primary/15 text-primary border border-primary/30"
