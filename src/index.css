@@ -66,4 +66,9 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+
+  /* Smooth drag-and-drop transitions */
+  [data-rbd-draggable-context-id] {
+    transition: background-color 200ms ease, box-shadow 200ms ease;
+  }
 }

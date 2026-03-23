@@ -1,13 +1,19 @@
 /**
  * PipelineTable
  * 
- * The main data table showing all sprint stories and their
- * deployment pipeline progress. Supports filtering by search
- * query, assignee, and pipeline stage.
+ * The main data table showing sprint stories and their
+ * deployment pipeline progress. Supports filtering, search,
+ * and drag-and-drop row reordering.
  */
 
-import { useState, useMemo } from "react";
-import { Search, Filter } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { Search, Filter, GripVertical } from "lucide-react";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type DropResult,
+} from "@hello-pangea/dnd";
 import {
   Table,
   TableBody,
@@ -36,6 +42,18 @@ export function PipelineTable({ stories }: PipelineTableProps) {
   const [search, setSearch] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [orderedIds, setOrderedIds] = useState<string[]>([]);
+
+  // Sync order when stories change (new data from API)
+  useEffect(() => {
+    setOrderedIds(stories.map((s) => s.id));
+  }, [stories]);
+
+  // Build a lookup map for quick access
+  const storyMap = useMemo(
+    () => new Map(stories.map((s) => [s.id, s])),
+    [stories]
+  );
 
   // Extract unique assignee names for the filter dropdown
   const assigneeNames = useMemo(
@@ -43,28 +61,49 @@ export function PipelineTable({ stories }: PipelineTableProps) {
     [stories]
   );
 
-  // Apply filters
+  // Apply filters while preserving manual order
   const filteredStories = useMemo(() => {
-    return stories.filter((story) => {
-      // Text search: match on story key or title
-      const q = search.toLowerCase();
-      if (q && !story.key.toLowerCase().includes(q) && !story.title.toLowerCase().includes(q)) {
-        return false;
-      }
-      // Assignee filter
-      if (assigneeFilter !== "all" && story.assignee.name !== assigneeFilter) {
-        return false;
-      }
-      // Stage filter
-      if (stageFilter !== "all" && story.currentStage !== stageFilter) {
-        return false;
-      }
-      return true;
+    return orderedIds
+      .map((id) => storyMap.get(id))
+      .filter((story): story is PipelineStory => {
+        if (!story) return false;
+        const q = search.toLowerCase();
+        if (q && !story.key.toLowerCase().includes(q) && !story.title.toLowerCase().includes(q)) {
+          return false;
+        }
+        if (assigneeFilter !== "all" && story.assignee.name !== assigneeFilter) {
+          return false;
+        }
+        if (stageFilter !== "all" && story.currentStage !== stageFilter) {
+          return false;
+        }
+        return true;
+      });
+  }, [orderedIds, storyMap, search, assigneeFilter, stageFilter]);
+
+  /** Reorder rows on drag end */
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const from = result.source.index;
+    const to = result.destination.index;
+    if (from === to) return;
+
+    // Reorder the filtered list, then map back to full orderedIds
+    const draggedId = filteredStories[from].id;
+    const targetId = filteredStories[to].id;
+
+    setOrderedIds((prev) => {
+      const next = [...prev];
+      const fromIdx = next.indexOf(draggedId);
+      const toIdx = next.indexOf(targetId);
+      next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, draggedId);
+      return next;
     });
-  }, [stories, search, assigneeFilter, stageFilter]);
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       {/* ── Filter bar ───────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         {/* Search input */}
@@ -109,71 +148,105 @@ export function PipelineTable({ stories }: PipelineTableProps) {
 
       {/* ── Data table ───────────────────────────── */}
       <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border hover:bg-transparent">
-              <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[120px]">
-                Key
-              </TableHead>
-              <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider">
-                Story
-              </TableHead>
-              <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[180px]">
-                Assignee
-              </TableHead>
-              <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[260px]">
-                Pipeline
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredStories.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                  No stories match your filters.
-                </TableCell>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="w-[40px]" />
+                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[120px]">
+                  Key
+                </TableHead>
+                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider">
+                  Story
+                </TableHead>
+                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[180px]">
+                  Assignee
+                </TableHead>
+                <TableHead className="text-muted-foreground font-medium text-xs uppercase tracking-wider w-[260px]">
+                  Pipeline
+                </TableHead>
               </TableRow>
-            ) : (
-              filteredStories.map((story) => (
-                <TableRow
-                  key={story.id}
-                  className="border-border transition-colors duration-150 hover:bg-primary/[0.03] group"
-                >
-                  {/* Story key — lime accent on hover */}
-                  <TableCell className="font-mono text-xs text-muted-foreground group-hover:text-primary transition-colors duration-150">
-                    {story.key}
-                  </TableCell>
+            </TableHeader>
+            <Droppable droppableId="pipeline-table">
+              {(provided) => (
+                <TableBody ref={provided.innerRef} {...provided.droppableProps}>
+                  {filteredStories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                        No stories match your filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredStories.map((story, index) => (
+                      <Draggable key={story.id} draggableId={story.id} index={index}>
+                        {(provided, snapshot) => (
+                          <TableRow
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`
+                              border-border transition-all duration-200 group
+                              animate-row-enter
+                              hover:bg-primary/[0.04] hover:shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15),0_0_12px_-4px_hsl(var(--primary)/0.2)]
+                              ${snapshot.isDragging
+                                ? "bg-secondary shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.3),inset_0_0_0_1px_hsl(var(--primary)/0.3)] scale-[1.01] z-50"
+                                : ""}
+                            `}
+                            style={{
+                              ...provided.draggableProps.style,
+                              animationDelay: `${index * 40}ms`,
+                            }}
+                          >
+                            {/* Drag handle */}
+                            <TableCell className="w-[40px] px-2">
+                              <div
+                                {...provided.dragHandleProps}
+                                className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </div>
+                            </TableCell>
 
-                  {/* Story title */}
-                  <TableCell className="font-medium text-sm text-foreground/90">
-                    {story.prUrl ? (
-                      <a
-                        href={story.prUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:text-primary transition-colors duration-150 hover:underline underline-offset-2"
-                      >
-                        {story.title}
-                      </a>
-                    ) : (
-                      story.title
-                    )}
-                  </TableCell>
+                            {/* Story key */}
+                            <TableCell className="font-mono text-xs text-muted-foreground group-hover:text-primary transition-colors duration-150">
+                              {story.key}
+                            </TableCell>
 
-                  {/* Assignee */}
-                  <TableCell>
-                    <AssigneeCell assignee={story.assignee} />
-                  </TableCell>
+                            {/* Story title */}
+                            <TableCell className="font-medium text-sm text-foreground/90">
+                              {story.prUrl ? (
+                                <a
+                                  href={story.prUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-primary transition-colors duration-150 hover:underline underline-offset-2"
+                                >
+                                  {story.title}
+                                </a>
+                              ) : (
+                                story.title
+                              )}
+                            </TableCell>
 
-                  {/* Pipeline status icons */}
-                  <TableCell>
-                    <PipelineStatusIcons currentStage={story.currentStage} />
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                            {/* Assignee */}
+                            <TableCell>
+                              <AssigneeCell assignee={story.assignee} />
+                            </TableCell>
+
+                            {/* Pipeline status icons */}
+                            <TableCell>
+                              <PipelineStatusIcons currentStage={story.currentStage} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Draggable>
+                    ))
+                  )}
+                  {provided.placeholder}
+                </TableBody>
+              )}
+            </Droppable>
+          </Table>
+        </DragDropContext>
       </div>
 
       {/* Row count */}
