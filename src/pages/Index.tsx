@@ -1,17 +1,18 @@
 /**
  * Sprint Pipeline Dashboard
  * 
- * Main page that fetches story data on load and displays
- * the pipeline table. Includes a header with last-refreshed
- * timestamp and manual refresh button.
+ * Main page that fetches story data and displays it in
+ * two tabs: Pipeline (active) and Staging (completed).
+ * Includes auto-refresh with configurable intervals.
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { RefreshCw, Zap, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
@@ -39,11 +40,20 @@ export default function Index() {
       onRefresh: () => refetch(),
     });
 
-  // Manual refresh resets the countdown too
   const handleManualRefresh = () => {
     refetch();
     resetCountdown();
   };
+
+  // Split stories into pipeline (active) and staging
+  const pipelineStories = useMemo(
+    () => (stories ?? []).filter((s) => s.currentStage !== "deployed_staging"),
+    [stories]
+  );
+  const stagingStories = useMemo(
+    () => (stories ?? []).filter((s) => s.currentStage === "deployed_staging"),
+    [stories]
+  );
 
   const lastUpdated = dataUpdatedAt
     ? new Date(dataUpdatedAt).toLocaleTimeString([], {
@@ -57,7 +67,7 @@ export default function Index() {
     <div className="min-h-screen bg-background px-4 py-8 sm:px-8">
       <div className="mx-auto max-w-6xl space-y-8">
         {/* ── Header ─────────────────────────────── */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between animate-fade-in">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
               <Zap className="h-5 w-5 text-primary" fill="currentColor" />
@@ -79,7 +89,6 @@ export default function Index() {
                 onCheckedChange={setAutoRefresh}
                 className="data-[state=checked]:bg-primary"
               />
-              {/* Interval selector */}
               <Select
                 value={String(intervalSeconds)}
                 onValueChange={(v) => setIntervalSeconds(Number(v))}
@@ -94,12 +103,15 @@ export default function Index() {
                   <SelectItem value="1200">20 min</SelectItem>
                 </SelectContent>
               </Select>
-              <span className="text-xs text-muted-foreground tabular-nums w-12">
+              <span
+                className={`text-xs text-muted-foreground tabular-nums w-12 transition-opacity ${
+                  autoRefreshOn && secondsLeft <= 5 ? "animate-pulse-lime text-primary" : ""
+                }`}
+              >
                 {autoRefreshOn ? formatCountdown(secondsLeft) : "off"}
               </span>
             </div>
 
-            {/* Separator dot */}
             <div className="h-4 w-px bg-border" />
 
             {lastUpdated && (
@@ -122,7 +134,6 @@ export default function Index() {
         {/* ── Content ────────────────────────────── */}
         {isLoading ? (
           <div className="space-y-3">
-            {/* Skeleton rows while loading */}
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full rounded-lg bg-secondary" />
             ))}
@@ -142,7 +153,30 @@ export default function Index() {
             </Button>
           </div>
         ) : (
-          <PipelineTable stories={stories ?? []} />
+          <Tabs defaultValue="pipeline" className="space-y-4">
+            <TabsList className="bg-secondary border border-border">
+              <TabsTrigger
+                value="pipeline"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm"
+              >
+                Pipeline ({pipelineStories.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="staging"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-sm"
+              >
+                Staging ({stagingStories.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pipeline" className="mt-0">
+              <PipelineTable stories={pipelineStories} />
+            </TabsContent>
+
+            <TabsContent value="staging" className="mt-0">
+              <PipelineTable stories={stagingStories} />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
