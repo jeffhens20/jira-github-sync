@@ -71,8 +71,23 @@ export default function Index() {
                 onCheckedChange={setAutoRefresh}
                 className="data-[state=checked]:bg-primary"
               />
-              <span className="text-xs text-muted-foreground tabular-nums w-8">
-                {autoRefreshOn ? `${secondsLeft}s` : "off"}
+              {/* Interval selector */}
+              <Select
+                value={String(intervalSeconds)}
+                onValueChange={(v) => setIntervalSeconds(Number(v))}
+              >
+                <SelectTrigger className="h-7 w-[80px] bg-secondary border-border text-xs tabular-nums px-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-secondary border-border">
+                  <SelectItem value="30">30s</SelectItem>
+                  <SelectItem value="300">5 min</SelectItem>
+                  <SelectItem value="600">10 min</SelectItem>
+                  <SelectItem value="1200">20 min</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground tabular-nums w-12">
+                {autoRefreshOn ? formatCountdown(secondsLeft) : "off"}
               </span>
             </div>
 
