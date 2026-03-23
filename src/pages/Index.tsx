@@ -7,24 +7,35 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { RefreshCw, Zap, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PipelineTable } from "@/components/PipelineTable";
 import { fetchJiraStories } from "@/services/jira";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
+/** Format seconds as "Xs" or "M:SS" for longer intervals */
+function formatCountdown(s: number): string {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
 export default function Index() {
+  const [intervalSeconds, setIntervalSeconds] = useState(30);
+
   const { data: stories, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["pipeline-stories"],
     queryFn: fetchJiraStories,
   });
 
-  // Auto-refresh countdown (30s interval)
   const { enabled: autoRefreshOn, setEnabled: setAutoRefresh, secondsLeft, resetCountdown } =
     useAutoRefresh({
-      intervalSeconds: 30,
+      intervalSeconds,
       onRefresh: () => refetch(),
     });
 
@@ -68,8 +79,23 @@ export default function Index() {
                 onCheckedChange={setAutoRefresh}
                 className="data-[state=checked]:bg-primary"
               />
-              <span className="text-xs text-muted-foreground tabular-nums w-8">
-                {autoRefreshOn ? `${secondsLeft}s` : "off"}
+              {/* Interval selector */}
+              <Select
+                value={String(intervalSeconds)}
+                onValueChange={(v) => setIntervalSeconds(Number(v))}
+              >
+                <SelectTrigger className="h-7 w-[80px] bg-secondary border-border text-xs tabular-nums px-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-secondary border-border">
+                  <SelectItem value="30">30s</SelectItem>
+                  <SelectItem value="300">5 min</SelectItem>
+                  <SelectItem value="600">10 min</SelectItem>
+                  <SelectItem value="1200">20 min</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground tabular-nums w-12">
+                {autoRefreshOn ? formatCountdown(secondsLeft) : "off"}
               </span>
             </div>
 
