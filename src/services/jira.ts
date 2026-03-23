@@ -2,7 +2,7 @@
  * Jira API Service
  *
  * Fetches stories/issues from Jira's REST API.
- * Accepts a project config to target the correct Jira instance.
+ * Results are cached per project for 2 minutes.
  * Returns mock data when USE_MOCK_DATA is true.
  */
 
@@ -10,13 +10,15 @@ import { USE_MOCK_DATA } from "@/config/projects";
 import { mockStoriesByProject } from "@/services/mockData";
 import { findPrForIssueKey } from "@/services/githubSearch";
 import { getDeploymentStage } from "@/services/github";
+import { createCache } from "@/services/cache";
 import type { ProjectConfig } from "@/config/projects";
 import type { PipelineStory } from "@/types/pipeline";
 
+/** Cache enriched stories per project for 2 minutes */
+const storiesCache = createCache<PipelineStory[]>(2 * 60 * 1000);
+
 /**
  * Fetch current sprint stories from Jira for a given project.
- *
- * @param project — project config with Jira credentials
  */
 export async function fetchJiraStories(project: ProjectConfig): Promise<PipelineStory[]> {
   // ── Mock mode ──────────────────────────────
@@ -24,6 +26,10 @@ export async function fetchJiraStories(project: ProjectConfig): Promise<Pipeline
     await new Promise((r) => setTimeout(r, 600));
     return mockStoriesByProject[project.id] ?? [];
   }
+
+  // ── Check cache ────────────────────────────
+  const cached = storiesCache.get(project.id);
+  if (cached) return cached;
 
   // ── Live API call ──────────────────────────
   const { baseUrl, projectKey, apiToken, userEmail } = project.jira;
@@ -73,5 +79,6 @@ export async function fetchJiraStories(project: ProjectConfig): Promise<Pipeline
     })
   );
 
+  storiesCache.set(project.id, enriched);
   return enriched;
 }
