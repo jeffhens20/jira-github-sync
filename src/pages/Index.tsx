@@ -28,7 +28,7 @@ function formatCountdown(s: number): string {
 }
 
 export default function Index() {
-  const [intervalSeconds, setIntervalSeconds] = useState(30);
+  const [intervalSeconds, setIntervalSeconds] = useState(900);
   const [activeProject, setActiveProject] = useState(projects[0].id);
   const [cycleInterval, setCycleInterval] = useState(10);
 
