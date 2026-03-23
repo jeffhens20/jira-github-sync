@@ -1,25 +1,32 @@
 
 
-## Plan: Consolidate integrations.ts into projects.ts
+## Plan: Environment Variable Support for Project Credentials
 
-### 1. Move `USE_MOCK_DATA` into `projects.ts`
-Add the `USE_MOCK_DATA` toggle at the top of `src/config/projects.ts` with its existing comment.
+### Approach
+Update `src/config/projects.ts` to read credentials from `import.meta.env` variables, falling back to the current placeholder strings. Each project gets a prefixed set of env vars.
 
-### 2. Delete `integrations.ts`
-Remove `src/config/integrations.ts` entirely. The single-project constants (`JIRA_BASE_URL`, `GITHUB_OWNER`, etc.) are unused — each project in the array carries its own credentials.
+### Naming Convention
+```text
+VITE_{PROJECT_ID}_{SERVICE}_{FIELD}
 
-### 3. Update `github.ts` imports
-`src/services/github.ts` imports `USE_MOCK_DATA`, `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_TOKEN`, and `GITHUB_ENVIRONMENTS` from `integrations.ts`. Refactor it to:
-- Import `USE_MOCK_DATA` from `@/config/projects`
-- Accept a `ProjectConfig` parameter (like `jira.ts` already does) instead of using global constants
-- Read `owner`, `repo`, `token`, and `environments` from the project config
+Examples:
+VITE_PAYMENTS_JIRA_BASE_URL
+VITE_PAYMENTS_JIRA_API_TOKEN
+VITE_PAYMENTS_GITHUB_TOKEN
+VITE_PLATFORM_GITHUB_REPO
+```
 
-### 4. Update `jira.ts` import
-Change the `USE_MOCK_DATA` import from `@/config/integrations` to `@/config/projects`.
+### Changes
 
-### Files changed
-1. `src/config/projects.ts` — add `USE_MOCK_DATA`
-2. `src/config/integrations.ts` — delete
-3. `src/services/github.ts` — import from projects, accept project param
-4. `src/services/jira.ts` — update import path
+**`src/config/projects.ts`**
+- Add a helper function `env(key: string, fallback: string): string` that reads `import.meta.env[key] ?? fallback`
+- Replace each hardcoded placeholder with an `env()` call using the project-specific variable name
+- Add a comment block at the top documenting all supported env var names
+
+**`.env.example`** (new file)
+- List all supported `VITE_` variables with empty/placeholder values as a reference for developers
+
+### Files
+1. `src/config/projects.ts` — add env var loading
+2. `.env.example` — new, documents all variables
 
