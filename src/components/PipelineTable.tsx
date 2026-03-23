@@ -154,18 +154,14 @@ export function PipelineTable({ stories }: PipelineTableProps) {
                           group flex items-center gap-3 sm:gap-4
                           rounded-xl border border-border bg-card
                           px-3 py-3 sm:px-5 sm:py-3.5
-                          transition-all duration-200
-                          animate-row-enter
+                          transition-colors duration-200
                           hover:bg-primary/[0.04]
                           hover:shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.15),0_0_16px_-4px_hsl(var(--primary)/0.2)]
                           ${snapshot.isDragging
                             ? "bg-secondary shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.3),inset_0_0_0_1px_hsl(var(--primary)/0.3)] scale-[1.01] z-50"
                             : ""}
                         `}
-                        style={{
-                          ...provided.draggableProps.style,
-                          animationDelay: `${index * 40}ms`,
-                        }}
+                        style={provided.draggableProps.style}
                       >
                         {/* Drag handle */}
                         <div
