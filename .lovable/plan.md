@@ -1,35 +1,42 @@
 
 
-## Plan: Tabs, Drag-and-Drop, and Visual Polish
+## Plan: Multi-Project Tabs and Header Cleanup
 
-### 1. Add `@hello-pangea/dnd` for drag-and-drop
-Install `@hello-pangea/dnd` (maintained fork of `react-beautiful-dnd`) for row reordering within each tab's table.
+### 1. Remove header title and subtitle
+Remove the "Sprint Pipeline" heading, the Zap icon, and the subtitle line from `Index.tsx`. Keep only the right-side controls (auto-refresh, timestamp, refresh button).
 
-### 2. Split stories into two tabs: "Pipeline" and "Staging"
-**File: `src/pages/Index.tsx`**
-- Use the existing `Tabs`/`TabsList`/`TabsTrigger`/`TabsContent` components
-- Filter stories into two groups:
-  - **Pipeline tab**: stories where `currentStage !== "deployed_staging"`
-  - **Staging tab**: stories where `currentStage === "deployed_staging"`
-- Show counts in each tab label (e.g. "Pipeline (8)" / "Staging (3)")
-- Both tabs share the same filter bar and render `PipelineTable`
+### 2. Create a projects configuration file
+**New file: `src/config/projects.ts`**
 
-### 3. Make rows draggable with reorder persistence
-**File: `src/components/PipelineTable.tsx`**
-- Wrap `TableBody` in a `DragDropContext` + `Droppable`
-- Wrap each `TableRow` in a `Draggable`
-- Add a grip handle icon (`GripVertical`) as the first column
-- Maintain local `orderedStories` state; update on drag end
-- Add subtle drag styles: elevated shadow, slight scale, lime border highlight
+Define an array of project configs, each containing:
+- `id` — unique slug (used as tab value)
+- `name` — display name for the tab
+- `jira` — `{ baseUrl, projectKey, apiToken, userEmail }`
+- `github` — `{ owner, repo, token, environments }`
 
-### 4. Visual polish with Tailwind animations
-- Add subtle `animate-in` fade on table mount
-- Add hover glow effect on rows (lime `box-shadow`)
-- Smooth transition on tab switch
-- Pulse animation on the auto-refresh countdown when < 5s remaining
+Provide 2-3 mock projects with placeholder values. The existing single-project config in `integrations.ts` will remain for reference but the app will use the new projects array.
 
-### Technical details
-- **New dependency**: `@hello-pangea/dnd`
-- **Files modified**: `src/pages/Index.tsx`, `src/components/PipelineTable.tsx`, `src/index.css` (add keyframes)
-- The drag-and-drop reorder is local state only (resets on refresh) — appropriate for a dashboard view
+### 3. Generate per-project mock data
+**Update: `src/services/mockData.ts`**
+
+Export a `Record<string, PipelineStory[]>` keyed by project id, with different story keys/titles per project so tabs feel distinct.
+
+### 4. Update data fetching to accept a project config
+**Update: `src/services/jira.ts`**
+
+Change `fetchJiraStories` to accept a project config parameter so it uses the correct Jira/GitHub credentials per project. In mock mode, return the corresponding mock dataset.
+
+### 5. Add project sub-tabs in Index.tsx
+**Update: `src/pages/Index.tsx`**
+
+- Add state for `activeProject` (defaults to first project)
+- Render a second row of tabs beneath the Pipeline/Staging tabs for project selection
+- Pass the selected project to the query (include project id in `queryKey`)
+- Filter stories into pipeline/staging as before
+
+### Files changed
+1. `src/config/projects.ts` — new
+2. `src/services/mockData.ts` — keyed by project
+3. `src/services/jira.ts` — accept project param
+4. `src/pages/Index.tsx` — remove header text, add project tabs
 
