@@ -30,6 +30,21 @@ function formatCountdown(s: number): string {
 export default function Index() {
   const [intervalSeconds, setIntervalSeconds] = useState(30);
   const [activeProject, setActiveProject] = useState(projects[0].id);
+  const [cycleInterval, setCycleInterval] = useState(10);
+
+  const projectIds = useMemo(() => projects.map((p) => p.id), []);
+
+  const {
+    enabled: autoCycleOn,
+    setEnabled: setAutoCycle,
+    secondsLeft: cycleSecondsLeft,
+    resetCountdown: resetCycleCountdown,
+  } = useAutoCycle({
+    values: projectIds,
+    active: activeProject,
+    onCycle: (next) => setActiveProject(next),
+    intervalSeconds: cycleInterval,
+  });
 
   const selectedProject = projects.find((p) => p.id === activeProject) ?? projects[0];
 
