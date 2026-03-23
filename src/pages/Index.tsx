@@ -17,15 +17,16 @@ import { fetchJiraStories } from "@/services/jira";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 
 export default function Index() {
+  const [intervalSeconds, setIntervalSeconds] = useState(30);
+
   const { data: stories, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["pipeline-stories"],
     queryFn: fetchJiraStories,
   });
 
-  // Auto-refresh countdown (30s interval)
   const { enabled: autoRefreshOn, setEnabled: setAutoRefresh, secondsLeft, resetCountdown } =
     useAutoRefresh({
-      intervalSeconds: 30,
+      intervalSeconds,
       onRefresh: () => refetch(),
     });
 
