@@ -46,7 +46,7 @@ export async function fetchJiraStories(project: ProjectConfig): Promise<Pipeline
 
   const data = await response.json();
 
-  return data.issues.map((issue: any) => ({
+  const stories: PipelineStory[] = data.issues.map((issue: any) => ({
     id: issue.id,
     key: issue.key,
     title: issue.fields.summary,
@@ -56,4 +56,22 @@ export async function fetchJiraStories(project: ProjectConfig): Promise<Pipeline
     },
     currentStage: "draft_pr" as const,
   }));
+
+  // ── Link PRs and derive real pipeline stages ──
+  const enriched = await Promise.all(
+    stories.map(async (story) => {
+      const prMatch = await findPrForIssueKey(story.key, project);
+      if (!prMatch) return story;
+
+      const currentStage = await getDeploymentStage(prMatch.prNumber, project);
+      return {
+        ...story,
+        prNumber: prMatch.prNumber,
+        prUrl: prMatch.prUrl,
+        currentStage,
+      };
+    })
+  );
+
+  return enriched;
 }
